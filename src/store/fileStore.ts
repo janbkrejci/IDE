@@ -51,7 +51,7 @@ export const useFileStore = create<FileStore>((set) => ({
       const updatedTabs = state.openTabs.map((tab) =>
         tab === oldPath ? newPath : tab
       );
-      
+
       return {
         files: state.files.map((f) => ({
           ...f,

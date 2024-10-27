@@ -1,11 +1,27 @@
 import { create } from 'zustand';
 
+type ThemeType = 'light' | 'dark';
+
 interface ThemeStore {
-  isDark: boolean;
-  toggleTheme: () => void;
+  theme: ThemeType;
+  setTheme: (theme: ThemeType) => void;
 }
 
-export const useThemeStore = create<ThemeStore>((set) => ({
-  isDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
-  toggleTheme: () => set((state) => ({ isDark: !state.isDark })),
-}));
+const useThemeStore = create<ThemeStore>((set) => {
+  const matchDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+  const updateTheme = () => {
+    set({ theme: matchDark.matches ? 'dark' : 'light' });
+  };
+
+  // Listen for changes in system theme
+  matchDark.addEventListener('change', updateTheme);
+
+  // Initialize with the current system theme
+  return {
+    theme: matchDark.matches ? 'dark' : 'light',
+    setTheme: (theme) => set({ theme }),
+  };
+});
+
+export { useThemeStore };

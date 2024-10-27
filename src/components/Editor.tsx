@@ -124,7 +124,7 @@ const CodeEditor: React.FC = () => {
     event.stopPropagation();
     const newTabs = openTabs.filter((tab) => tab !== path);
     setOpenTabs(newTabs);
-    
+
     if (activeFile?.path === path) {
       const nextTab = newTabs[newTabs.length - 1];
       const nextFile = files.find((f) => f.path === nextTab);
@@ -142,9 +142,8 @@ const CodeEditor: React.FC = () => {
           return (
             <div
               key={path}
-              className={`group flex items-center px-3 py-2 cursor-pointer border-r border-[#3c3c3c] min-w-[100px] max-w-[200px] ${
-                isActive ? 'bg-editor-bg' : 'hover:bg-[#2d2d2d]'
-              }`}
+              className={`group flex items-center px-3 py-2 cursor-pointer border-r border-[#3c3c3c] min-w-[100px] max-w-[200px] ${isActive ? 'bg-editor-bg' : 'hover:bg-[#2d2d2d]'
+                }`}
               onClick={() => file && setActiveFile(file)}
             >
               <span className="text-sm truncate flex-1">
@@ -193,7 +192,7 @@ const CodeEditor: React.FC = () => {
               formatOnType: true,
               suggestOnTriggerCharacters: true,
               acceptSuggestionOnCommitCharacter: true,
-              wordBasedSuggestions: true,
+              wordBasedSuggestions: "allDocuments",
               parameterHints: {
                 enabled: true,
                 cycle: true,
@@ -229,7 +228,7 @@ const CodeEditor: React.FC = () => {
           />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-500">
-            {activeFile ? 'Cannot edit a directory' : 'Select a file to edit'}
+            {activeFile ? 'Složku nelze upravovat' : 'Vyberte soubor, který chcete upravit'}
           </div>
         )}
       </div>

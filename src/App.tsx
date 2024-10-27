@@ -1,11 +1,10 @@
-import React from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import FileExplorer from './components/FileExplorer';
 import Editor from './components/Editor';
 import { useThemeStore } from './store/themeStore';
 
 function App() {
-  const isDark = useThemeStore((state) => state.isDark);
+  const isDark = useThemeStore((state) => state.theme === 'dark');
 
   return (
     <div className={`h-screen flex flex-col ${isDark ? 'dark' : ''}`}>

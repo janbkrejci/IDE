@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, DragEvent } from 'react';
 import { useFileStore, FileInfo } from '../store/fileStore';
-
 import {
   FolderIcon,
   DocumentIcon,
