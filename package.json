@@ -13,6 +13,7 @@
     "@heroicons/react": "^2.1.1",
     "@monaco-editor/react": "^4.6.0",
     "@webcontainer/api": "^1.4.0",
+    "embedded-react-browser": "^0.0.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-resizable-panels": "^2.0.12",

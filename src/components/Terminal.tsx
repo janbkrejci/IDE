@@ -9,10 +9,12 @@ type TerminalProps = {
   webContainer: WebContainer;
   visible?: boolean;
 };
+
 const Terminal = ({ webContainer, visible }: TerminalProps) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const shellProcessRef = useRef<WebContainerProcess | null>(null);
 
   const initTerminal = useCallback(() => {
     if (!terminalRef.current) return;
@@ -50,6 +52,12 @@ const Terminal = ({ webContainer, visible }: TerminalProps) => {
       requestAnimationFrame(() => {
         try {
           fitAddonRef.current?.fit();
+          if (xtermRef.current) {
+            shellProcessRef.current?.resize({
+              cols: xtermRef.current?.cols,
+              rows: xtermRef.current?.rows
+            });
+          }
         } catch (e) {
           console.error('Error fitting terminal:', e);
         }
@@ -60,6 +68,9 @@ const Terminal = ({ webContainer, visible }: TerminalProps) => {
   useEffect(() => {
     const terminal = xtermRef.current;
     if (!terminal) return;
+    if (visible) {
+      setTimeout(fitTerminal, 1);
+    }
     terminal.focus();
   }, [visible]);
 
@@ -67,54 +78,44 @@ const Terminal = ({ webContainer, visible }: TerminalProps) => {
     const terminal = initTerminal();
     if (!terminal) return;
 
+    async function startShell() {
+      shellProcessRef.current = await webContainer.spawn('jsh', {
+        terminal: {
+          cols: terminal!.cols,
+          rows: terminal!.rows
+        }
+      });
+      shellProcessRef.current.output.pipeTo(
+        new WritableStream({
+          write(data) {
+            terminal!.write(data);
+          }
+        })
+      );
+
+      const input = shellProcessRef.current.input.getWriter();
+
+      terminal!.onData((data) => {
+        input.write(data);
+      });
+
+      // terminal!.write('Welcome to WebContainers Terminal!\r\n');
+      input.write('alias ll="ls -l";alias serve="npx -y serve";alias vi="npx -y termit";alias clone="npx -y create-clone";clear\n');
+      // if startup.sh exists, run it after one second
+      // setTimeout(async () => {
+      //   const startup = await webContainer.fs.readFile('/startup.sh');
+      //   if (startup) {
+      //     terminal.input('sh startup.sh\n');
+      //   }
+      // }, 1000);
+    }
+
     const initialFitTimeout = setTimeout(() => {
       fitTerminal();
-      terminal.focus();
-      let shellProcess: WebContainerProcess;
-      async function startShell() {
-        shellProcess = await webContainer.spawn('jsh', {
-          terminal: {
-            cols: terminal.cols,
-            rows: terminal.rows
-          }
-        });
-        shellProcess.output.pipeTo(
-          new WritableStream({
-            write(data) {
-              terminal.write(data);
-            }
-          })
-        );
 
-        const input = shellProcess.input.getWriter();
-
-        terminal.onData((data) => {
-          input.write(data);
-        });
-
-        window.addEventListener('resize', () => {
-          //fitAddon.fit();
-          shellProcess.resize({
-            cols: terminal.cols,
-            rows: terminal.rows
-          });
-        });
-
-        terminal.write('Welcome to WebContainers Terminal!\r\n');
-        // if startup.sh exists, run it after one second
-        setTimeout(async () => {
-          const startup = await webContainer.fs.readFile('/startup.sh');
-          if (startup) {
-            terminal.input('sh startup.sh\n');
-          }
-        }, 1000);
-      }
       startShell();
+      terminal.focus();
     }, 100);
-
-    const dataListener = terminal.onData((data) => {
-      //handleInput(terminal, data);
-    });
 
     const handleResize = () => {
       fitTerminal();
@@ -125,7 +126,8 @@ const Terminal = ({ webContainer, visible }: TerminalProps) => {
     return () => {
       clearTimeout(initialFitTimeout);
       window.removeEventListener('resize', handleResize);
-      dataListener.dispose();
+      //dataListener.dispose();
+      shellProcessRef.current?.kill();
       terminal.dispose();
       xtermRef.current = null;
       fitAddonRef.current = null;
@@ -141,7 +143,7 @@ const Terminal = ({ webContainer, visible }: TerminalProps) => {
         <Panel>
           <div
             ref={terminalRef}
-            className="flex-1 overflow-hidden"
+            className="flex-1 overflow-hidden h-full"
             style={{ padding: '4px' }}
           />
         </Panel>

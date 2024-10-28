@@ -8,8 +8,9 @@ import { WebContainer } from '@webcontainer/api';
 
 const tabs = [
   { label: 'IDE', code: 'IDE' },
-  { label: 'Terminal', code: 'Terminal' },
-  { label: 'Output', code: 'Output' },
+  { label: 'Terminal 1', code: 'Terminal 1' },
+  { label: 'Terminal 2', code: 'Terminal 2' },
+  { label: 'Browser', code: 'Browser' },
 ];
 
 type AppProps = {
@@ -18,12 +19,21 @@ type AppProps = {
 function App({ webContainer }: AppProps) {
   const isDark = useThemeStore((state) => state.theme === 'dark');
   const [activeTab, setActiveTab] = React.useState('IDE');
+  const [previewURL, setPreviewURL] = React.useState('about:blank');
+
+  useEffect(() => {
+    if (webContainer) {
+      webContainer.on('server-ready', (_port, url) => {
+        setPreviewURL(url);
+        setActiveTab('Browser');
+      });
+    }
+  }, [webContainer]);
 
   return (
     <div className={`h-screen flex flex-col ${isDark ? 'dark' : ''}`}>
       <div className="flex overflow-x-auto bg-[#252526] border-b border-[#3c3c3c]">
         {tabs.map(({ label, code }) => {
-
           const isActive = activeTab === code;
           return (
             <div
@@ -39,16 +49,29 @@ function App({ webContainer }: AppProps) {
           );
         })}
       </div>
-      {activeTab === 'IDE' && <PanelGroup direction="horizontal">
-        <Panel defaultSize={20} minSize={15}>
-          <FileExplorer />
-        </Panel>
-        <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors" />
-        <Panel>
-          <Editor />
-        </Panel>
-      </PanelGroup>}
-      <Terminal webContainer={webContainer} visible={activeTab == 'Terminal'} />
+      <div className={activeTab === 'IDE' ? 'flex-grow' : 'hidden'}>
+        <PanelGroup direction="horizontal">
+          <Panel defaultSize={20} minSize={15}>
+            <FileExplorer webContainer={webContainer} />
+          </Panel>
+          <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors" />
+          <Panel>
+            <Editor />
+          </Panel>
+        </PanelGroup>
+      </div>
+
+      <Terminal webContainer={webContainer} visible={activeTab == 'Terminal 1'} />
+      <Terminal webContainer={webContainer} visible={activeTab == 'Terminal 2'} />
+
+      <div className={activeTab === 'Browser' ? 'h-full' : 'hidden'}>
+        <PanelGroup direction='vertical'>
+          <Panel className="text-white light">
+            <iframe src={previewURL} className="w-full h-full bg-gray-200" />
+          </Panel>
+        </PanelGroup>
+      </div>
+
     </div>
   );
 }

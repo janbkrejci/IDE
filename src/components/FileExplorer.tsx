@@ -9,6 +9,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
+import { IFSWatcher, WebContainer } from '@webcontainer/api';
 
 interface ContextMenuProps {
   x: number;
@@ -248,8 +249,11 @@ const FileItem: React.FC<FileItemProps> = ({
   );
 };
 
-const FileExplorer: React.FC = () => {
-  const { files, createFile, createDirectory, deleteItem, renameItem } = useFileStore();
+type FileExplorerProps = {
+  webContainer: WebContainer;
+};
+const FileExplorer = ({ webContainer }: FileExplorerProps) => {
+  const { files, createFile, createDirectory, deleteItem, renameItem, updateFile } = useFileStore();
   const [newItemState, setNewItemState] = useState<{
     type: 'file' | 'directory';
     parentPath: string;
@@ -364,6 +368,51 @@ const FileExplorer: React.FC = () => {
 
     return renderFiles(rootFiles, -1);
   };
+
+  const updateFileContent = async (path: string) => {
+    const bytes = await webContainer.fs.readFile(path);
+    if (!bytes) return;
+    //make string from bytes
+    const content = new TextDecoder('utf-8').decode(bytes);
+    updateFile(path, content);
+  };
+
+  useEffect(() => {
+    if (!webContainer) return;
+    const watcher: IFSWatcher = webContainer.fs.watch('/', { recursive: true }, (event, path) => {
+      console.log(event, path);
+      if (event === 'rename') {
+        const scan = async () => {
+          const p = path.toString();
+          const folder = p.split('/').slice(0, -1).join('/');
+          const fileName = p.split('/').pop();
+          let entries: any[];
+          try {
+            entries = await webContainer.fs.readdir(folder, { withFileTypes: true });
+            console.log(entries);
+          } catch (e) {
+            entries = [];
+          }
+          const entry = entries.find((entry) => entry.name === fileName);
+          if (!entry) {
+            deleteItem(p);
+          } else {
+            if (entry._type === 1) {
+              createFile(p);
+              updateFileContent(p);
+            } else if (entry._type === 2) {
+              createDirectory(p);
+            }
+          }
+        };
+        scan();
+      } else if (event === 'change') {
+        updateFileContent(path.toString());
+      }
+    });
+
+    return () => watcher.close();
+  }, []);
 
   return (
     <div className="h-full bg-[#252526] text-gray-300">

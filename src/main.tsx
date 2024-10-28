@@ -17,13 +17,13 @@ root.render(
 );
 
 // Call only once
-const webContainer = await WebContainer.boot({
+WebContainer.boot({
   coep: 'credentialless',
   workdirName: 'wc'
+}).then((webContainer) => {
+  root.render(
+    <StrictMode>
+      <App webContainer={webContainer} />
+    </StrictMode>
+  );
 });
-
-root.render(
-  <StrictMode>
-    <App webContainer={webContainer} />
-  </StrictMode>
-);

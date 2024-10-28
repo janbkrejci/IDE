@@ -14,6 +14,7 @@ interface FileStore {
   setActiveFile: (file: FileInfo | null) => void;
   setOpenTabs: (tabs: string[]) => void;
   createFile: (path: string) => void;
+  updateFile: (path: string, content: string) => void;
   createDirectory: (path: string) => void;
   deleteItem: (path: string) => void;
   renameItem: (oldPath: string, newPath: string) => void;
@@ -30,8 +31,14 @@ export const useFileStore = create<FileStore>((set) => ({
     const newFile: FileInfo = { path, content: '', type: 'file' };
     set((state) => ({
       files: [...state.files, newFile],
-      activeFile: newFile,
-      openTabs: [...state.openTabs, path],
+      //activeFile: newFile,
+      //openTabs: [...state.openTabs, path],
+    }));
+  },
+  updateFile: (path, content) => {
+    const newFile: FileInfo = { path, content, type: 'file' };
+    set((state) => ({
+      files: [...state.files.filter(x => x.path != path), newFile],
     }));
   },
   createDirectory: (path) => {
