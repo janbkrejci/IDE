@@ -16,6 +16,7 @@ const tabs = [
 type AppProps = {
   webContainer: WebContainer;
 };
+
 function App({ webContainer }: AppProps) {
   const isDark = useThemeStore((state) => state.theme === 'dark');
   const [activeTab, setActiveTab] = React.useState('IDE');
@@ -31,8 +32,8 @@ function App({ webContainer }: AppProps) {
   }, [webContainer]);
 
   return (
-    <div className={`h-screen flex flex-col ${isDark ? 'dark' : ''}`}>
-      <div className="flex overflow-x-auto bg-[#252526] border-b border-[#3c3c3c]">
+    <div className={`max-h-screen h-screen flex flex-col ${isDark ? 'dark' : ''}`}>
+      <div className="select-none flex min-h-fit overflow-x-auto bg-[#252526] border-b border-[#3c3c3c]">
         {tabs.map(({ label, code }) => {
           const isActive = activeTab === code;
           return (
@@ -49,22 +50,31 @@ function App({ webContainer }: AppProps) {
           );
         })}
       </div>
-      <div className={activeTab === 'IDE' ? 'flex-grow' : 'hidden'}>
+
+      <div className={activeTab === 'IDE' ? 'h-full w-full' : 'hidden'}>
         <PanelGroup direction="horizontal">
           <Panel defaultSize={20} minSize={15}>
             <FileExplorer webContainer={webContainer} />
           </Panel>
           <PanelResizeHandle className="w-1 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors" />
           <Panel>
-            <Editor />
+            <Editor webContainer={webContainer} />
           </Panel>
         </PanelGroup>
       </div>
 
-      <Terminal webContainer={webContainer} visible={activeTab == 'Terminal 1'} />
-      <Terminal webContainer={webContainer} visible={activeTab == 'Terminal 2'} />
+      <div className={activeTab === 'Terminal 1' ? 'h-full w-ful' : 'hidden'}>
+        <PanelGroup direction='vertical'>
+          <Terminal webContainer={webContainer} visible={activeTab == 'Terminal 1'} />
+        </PanelGroup>
+      </div>
+      <div className={activeTab === 'Terminal 2' ? 'h-full w-ful' : 'hidden'}>
+        <PanelGroup direction='vertical'>
+          <Terminal webContainer={webContainer} visible={activeTab == 'Terminal 2'} />
+        </PanelGroup>
+      </div>
 
-      <div className={activeTab === 'Browser' ? 'h-full' : 'hidden'}>
+      <div className={activeTab === 'Browser' ? 'h-full w-ful' : 'hidden'}>
         <PanelGroup direction='vertical'>
           <Panel className="text-white light">
             <iframe src={previewURL} className="w-full h-full bg-gray-200" />

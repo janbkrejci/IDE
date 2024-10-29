@@ -4,6 +4,10 @@ import App from './App.tsx';
 import './index.css';
 import { WebContainer } from '@webcontainer/api';
 
+window.onbeforeunload = function () {
+  return "";
+};
+
 const root = createRoot(document.getElementById('root')!);
 
 root.render(

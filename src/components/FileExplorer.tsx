@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, DragEvent } from 'react';
+import React, { useState, useRef, useEffect, DragEvent, act } from 'react';
 import { useFileStore, FileInfo } from '../store/fileStore';
 
 import {
@@ -252,8 +252,9 @@ const FileItem: React.FC<FileItemProps> = ({
 type FileExplorerProps = {
   webContainer: WebContainer;
 };
+
 const FileExplorer = ({ webContainer }: FileExplorerProps) => {
-  const { files, createFile, createDirectory, deleteItem, renameItem, updateFile } = useFileStore();
+  const { files, createFile, createDirectory, deleteItem, activeFile, updateFile, setActiveFile, openTabs, setOpenTabs } = useFileStore();
   const [newItemState, setNewItemState] = useState<{
     type: 'file' | 'directory';
     parentPath: string;
@@ -261,18 +262,33 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
   } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleCreateItem = (parentPath: string, name: string, type: 'file' | 'directory') => {
+  const handleCreateItem = async (parentPath: string, name: string, type: 'file' | 'directory') => {
     const fullPath = parentPath ? `${parentPath}/${name}` : name;
     if (type === 'file') {
-      createFile(fullPath);
+      await webContainer.fs.writeFile(fullPath, '');
+      //createFile(fullPath);
     } else {
-      createDirectory(fullPath);
+      await webContainer.fs.mkdir(fullPath);
+      //createDirectory(fullPath);
     }
     setNewItemState(null);
   };
 
-  const handleMove = (sourcePath: string, targetPath: string) => {
-    renameItem(sourcePath, targetPath);
+  const doRename = async (oldPath: string, newPath: string) => {
+    const isOpen = openTabs.includes(oldPath);
+    let content = activeFile?.content || '';
+
+    await webContainer.fs.rename(oldPath, newPath);
+
+    if (isOpen) {
+      setOpenTabs(openTabs.map((tab) => (tab === oldPath ? newPath : tab)));
+      setActiveFile({ path: newPath, content: content, type: 'file' });
+    }
+  };
+
+  const handleMove = async (sourcePath: string, targetPath: string) => {
+    //renameItem(sourcePath, targetPath);
+    await doRename(sourcePath, targetPath);
   };
 
   const handleRootDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -324,10 +340,13 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
           key={file.path}
           file={file}
           level={level}
-          onRename={renameItem}
-          onDelete={deleteItem}
+          onRename={doRename}
+          onDelete={
+            () => webContainer.fs.rm(file.path, { recursive: true })
+            //deleteItem
+          }
           onCreateItem={(parentPath, type) => setNewItemState({ type, parentPath, name: '' })}
-          onMove={handleMove}
+          onMove={doRename}
           isNewItemParent={newItemState?.parentPath === file.path}
           onNewItemSubmit={handleCreateItem}
         >
@@ -375,12 +394,16 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
     //make string from bytes
     const content = new TextDecoder('utf-8').decode(bytes);
     updateFile(path, content);
+    // update content of open tab, if any
+    const activeFile = useFileStore.getState().activeFile;
+    if (activeFile?.path === path) {
+      activeFile.content = content;
+    }
   };
 
   useEffect(() => {
     if (!webContainer) return;
     const watcher: IFSWatcher = webContainer.fs.watch('/', { recursive: true }, (event, path) => {
-      console.log(event, path);
       if (event === 'rename') {
         const scan = async () => {
           const p = path.toString();
@@ -389,7 +412,6 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
           let entries: any[];
           try {
             entries = await webContainer.fs.readdir(folder, { withFileTypes: true });
-            console.log(entries);
           } catch (e) {
             entries = [];
           }
@@ -419,7 +441,7 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
       <div className="h-8 flex items-center justify-between px-4 bg-[#2d2d2d]">
         <div className="flex items-center">
           <FolderIcon className="w-4 h-4 mr-2" />
-          <span className="text-sm">/</span>
+          <span className="text-sm">/home/wc/</span>
         </div>
         <div className="flex items-center space-x-1">
           <button

@@ -27,7 +27,7 @@ export const useFileStore = create<FileStore>((set) => ({
   setFiles: (files) => set({ files }),
   setActiveFile: (file) => set({ activeFile: file }),
   setOpenTabs: (tabs) => set({ openTabs: tabs }),
-  createFile: (path) => {
+  createFile: async (path) => {
     const newFile: FileInfo = { path, content: '', type: 'file' };
     set((state) => ({
       files: [...state.files, newFile],
@@ -35,25 +35,25 @@ export const useFileStore = create<FileStore>((set) => ({
       //openTabs: [...state.openTabs, path],
     }));
   },
-  updateFile: (path, content) => {
+  updateFile: async (path, content) => {
     const newFile: FileInfo = { path, content, type: 'file' };
     set((state) => ({
       files: [...state.files.filter(x => x.path != path), newFile],
     }));
   },
-  createDirectory: (path) => {
+  createDirectory: async (path) => {
     set((state) => ({
       files: [...state.files, { path, content: '', type: 'directory' }],
     }));
   },
-  deleteItem: (path) => {
+  deleteItem: async (path) => {
     set((state) => ({
       files: state.files.filter((f) => !f.path.startsWith(path)),
       activeFile: state.activeFile?.path.startsWith(path) ? null : state.activeFile,
       openTabs: state.openTabs.filter((tab) => !tab.startsWith(path)),
     }));
   },
-  renameItem: (oldPath, newPath) => {
+  renameItem: async (oldPath, newPath) => {
     set((state) => {
       const updatedTabs = state.openTabs.map((tab) =>
         tab === oldPath ? newPath : tab

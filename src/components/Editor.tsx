@@ -3,8 +3,13 @@ import { useFileStore } from '../store/fileStore';
 import Editor, { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { WebContainer } from '@webcontainer/api';
 
-const CodeEditor: React.FC = () => {
+type CodeEditorProps = {
+  webContainer: WebContainer;
+};
+
+const CodeEditor = ({ webContainer }: CodeEditorProps) => {
   const { activeFile, files, setFiles, setActiveFile, openTabs, setOpenTabs } = useFileStore();
 
   // Add file to tabs when activated
@@ -65,12 +70,15 @@ const CodeEditor: React.FC = () => {
     });
   };
 
-  const handleContentChange = (value: string | undefined) => {
+  const handleContentChange = async (value: string | undefined) => {
     if (activeFile && value !== undefined) {
       const updatedFiles = files.map((f) =>
         f.path === activeFile.path ? { ...f, content: value } : f
       );
       setFiles(updatedFiles);
+      if (webContainer) {
+        await webContainer.fs.writeFile(activeFile.path, value);
+      }
     }
   };
 
