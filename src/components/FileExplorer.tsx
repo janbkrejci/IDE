@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, DragEvent, act } from 'react';
+import React, { useState, useRef, useEffect, DragEvent } from 'react';
 import { useFileStore, FileInfo } from '../store/fileStore';
 
 import {
@@ -120,7 +120,7 @@ const FileItem: React.FC<FileItemProps> = ({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; } | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(file.path.split('/').pop() || '');
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleContextMenu = (e: React.MouseEvent) => {
