@@ -95,6 +95,69 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   );
 };
 
+const watchers = new Map<string, IFSWatcher>();
+
+const ensureFileStorePath = (path: string) => path.startsWith('/') ? path.substring(1) : path;
+
+const scanFolder = async (webContainer: WebContainer, folderPath: string) => {
+  const basePath = folderPath;
+  const fsFiles = (await webContainer.fs.readdir(basePath, { withFileTypes: true }))
+    .map((entry) => {
+      return {
+        path: [basePath, entry.name].filter(Boolean).join('/'),
+        content: '',
+        type: entry._type === 1 ? 'file' : entry._type === 2 ? 'directory' : 'unknown',
+      } as FileInfo;
+    }).filter((file) => file.type !== 'unknown');
+  let allFiles = useFileStore.getState().files;
+  const relevantFilesForPath = Object.values(allFiles)
+    .filter((file) => file.path.startsWith(basePath))
+    .filter((file) => file.path !== basePath)
+    .filter((file) => ensureFileStorePath(file.path.substring(basePath.length)).indexOf('/') === -1);
+
+  const deletedFiles = relevantFilesForPath.filter((file) => !fsFiles.some((f) => f.path === file.path));
+  const newFiles = fsFiles.filter((file) => !relevantFilesForPath.some((f) => f.path === file.path));
+
+  // delete deleted files from allFiles
+  allFiles = allFiles.filter((file) => !deletedFiles.some((f) => f.path === file.path));
+  // add new files to allFiles
+  newFiles.forEach((file) => {
+    allFiles.push(file);
+  });
+  useFileStore.setState({ files: allFiles });
+}
+
+const addWatcher = (webContainer: WebContainer, path: string, activeFile: FileInfo | null, updateFileContent: (path: string) => void) => {
+  if (watchers.has(path)) {
+    return;
+  }
+  const watcher = webContainer.fs.watch(path, (event, _path) => {
+    if (event === 'rename') {
+    scanFolder(webContainer, path).then();
+    } else {
+      if (activeFile?.path === path) {
+        updateFileContent(path);
+      }
+    }
+  });
+  watchers.set(path, watcher);
+}
+
+const removeWatcher = (path: string) => {
+  const watcher = watchers.get(path);
+  if (watcher) {
+    watcher.close();
+    watchers.delete(path);
+  }
+}
+
+const scanAndWatchFolder = async (webContainer: WebContainer, folderPath: string,
+  activeFile: FileInfo | null, updateFileContent: (path: string) => void
+) => {
+  await scanFolder(webContainer, folderPath);
+  addWatcher(webContainer, folderPath, activeFile, updateFileContent);
+}
+
 interface FileItemProps {
   file: FileInfo;
   level: number;
@@ -105,6 +168,8 @@ interface FileItemProps {
   isNewItemParent?: boolean;
   onNewItemSubmit: (parentPath: string, name: string, type: 'file' | 'directory') => void;
   children?: React.ReactNode;
+  webContainer: WebContainer;
+  updateFileContent: (path: string) => void;
 }
 
 const FileItem: React.FC<FileItemProps> = ({
@@ -115,6 +180,8 @@ const FileItem: React.FC<FileItemProps> = ({
   onCreateItem,
   onMove,
   children,
+  webContainer,
+  updateFileContent,
 }) => {
   const { activeFile, setActiveFile } = useFileStore();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; } | null>(null);
@@ -122,6 +189,16 @@ const FileItem: React.FC<FileItemProps> = ({
   const [newName, setNewName] = useState(file.path.split('/').pop() || '');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  useEffect(() => {
+    if (file.type === 'directory') {
+      if (isExpanded) {
+        scanAndWatchFolder(webContainer, file.path, activeFile, updateFileContent);
+      } else {
+        removeWatcher(file.path);
+      }
+    }
+  }, [isExpanded]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -349,6 +426,8 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
           onMove={doRename}
           isNewItemParent={newItemState?.parentPath === file.path}
           onNewItemSubmit={handleCreateItem}
+          webContainer={webContainer}
+          updateFileContent={updateFileContent}
         >
           {
             file.type === 'directory' &&
@@ -401,40 +480,51 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
     }
   };
 
-  useEffect(() => {
-    if (!webContainer) return;
-    const watcher: IFSWatcher = webContainer.fs.watch('/', { recursive: true }, (event, path) => {
-      if (event === 'rename') {
-        const scan = async () => {
-          const p = path.toString();
-          const folder = p.split('/').slice(0, -1).join('/');
-          const fileName = p.split('/').pop();
-          let entries: any[];
-          try {
-            entries = await webContainer.fs.readdir(folder, { withFileTypes: true });
-          } catch (e) {
-            entries = [];
-          }
-          const entry = entries.find((entry) => entry.name === fileName);
-          if (!entry) {
-            deleteItem(p);
-          } else {
-            if (entry._type === 1) {
-              createFile(p);
-              updateFileContent(p);
-            } else if (entry._type === 2) {
-              createDirectory(p);
-            }
-          }
-        };
-        scan();
-      } else if (event === 'change') {
-        updateFileContent(path.toString());
-      }
-    });
+  // useEffect(() => {
+  //   if (!webContainer) return;
+  //   const watcher: IFSWatcher = webContainer.fs.watch('/', { recursive: true }, (event, path) => {
+  //     if (event === 'rename') {
+  //       const scan = async () => {
+  //         const p = path.toString();
+  //         const folder = p.split('/').slice(0, -1).join('/');
+  //         const fileName = p.split('/').pop();
+  //         let entries: any[];
+  //         try {
+  //           entries = await webContainer.fs.readdir(folder, { withFileTypes: true });
+  //         } catch (e) {
+  //           entries = [];
+  //         }
+  //         const entry = entries.find((entry) => entry.name === fileName);
+  //         if (!entry) {
+  //           deleteItem(p);
+  //         } else {
+  //           if (entry._type === 1) {
+  //             createFile(p);
+  //             updateFileContent(p);
+  //           } else if (entry._type === 2) {
+  //             createDirectory(p);
+  //           }
+  //         }
+  //       };
+  //       scan();
+  //     } else if (event === 'change') {
+  //       updateFileContent(path.toString());
+  //     }
+  //   });
 
-    return () => watcher.close();
+  //   return () => watcher.close();
+  // }, []);
+
+  useEffect(() => {
+    scanAndWatchFolder(webContainer, '');
+    return () => removeWatcher('/');
   }, []);
+
+  useEffect(() => {
+    if (activeFile) {
+      updateFileContent(activeFile.path);
+    }
+  }, [activeFile]);
 
   return (
     <div className="h-full bg-[#252526] text-gray-300">
