@@ -106,9 +106,9 @@ const scanFolder = async (webContainer: WebContainer, folderPath: string) => {
       return {
         path: [basePath, entry.name].filter(Boolean).join('/'),
         content: '',
-        type: entry._type === 1 ? 'file' : entry._type === 2 ? 'directory' : 'unknown',
+        type: entry.isFile() ? 'file' : entry.isDirectory() ? 'directory' : null,
       } as FileInfo;
-    }).filter((file) => file.type !== 'unknown');
+    }).filter((file) => !!file.type);
   let allFiles = useFileStore.getState().files;
   const relevantFilesForPath = Object.values(allFiles)
     .filter((file) => file.path.startsWith(basePath))
@@ -133,7 +133,7 @@ const addWatcher = (webContainer: WebContainer, path: string, activeFile: FileIn
   }
   const watcher = webContainer.fs.watch(path, (event, _path) => {
     if (event === 'rename') {
-    scanFolder(webContainer, path).then();
+      scanFolder(webContainer, path).then();
     } else {
       if (activeFile?.path === path) {
         updateFileContent(path);
@@ -331,7 +331,7 @@ type FileExplorerProps = {
 };
 
 const FileExplorer = ({ webContainer }: FileExplorerProps) => {
-  const { files, createFile, createDirectory, deleteItem, activeFile, updateFile, setActiveFile, openTabs, setOpenTabs } = useFileStore();
+  const { files, activeFile, setActiveFile, updateFile, openTabs, setOpenTabs } = useFileStore();
   const [newItemState, setNewItemState] = useState<{
     type: 'file' | 'directory';
     parentPath: string;
@@ -352,14 +352,11 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
   };
 
   const doRename = async (oldPath: string, newPath: string) => {
-    const isOpen = openTabs.includes(oldPath);
-    let content = activeFile?.content || '';
-
     await webContainer.fs.rename(oldPath, newPath);
 
-    if (isOpen) {
-      setOpenTabs(openTabs.map((tab) => (tab === oldPath ? newPath : tab)));
-      setActiveFile({ path: newPath, content: content, type: 'file' });
+    setOpenTabs(openTabs.map((tab) => tab.path === oldPath ? { ...tab, path: newPath } : tab));
+    if (activeFile?.path === oldPath) {
+      setActiveFile(null);
     }
   };
 
@@ -474,10 +471,7 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
     const content = new TextDecoder('utf-8').decode(bytes);
     updateFile(path, content);
     // update content of open tab, if any
-    const activeFile = useFileStore.getState().activeFile;
-    if (activeFile?.path === path) {
-      activeFile.content = content;
-    }
+    return content;
   };
 
   // useEffect(() => {
@@ -516,7 +510,7 @@ const FileExplorer = ({ webContainer }: FileExplorerProps) => {
   // }, []);
 
   useEffect(() => {
-    scanAndWatchFolder(webContainer, '');
+    scanAndWatchFolder(webContainer, '', activeFile, updateFileContent);
     return () => removeWatcher('/');
   }, []);
 

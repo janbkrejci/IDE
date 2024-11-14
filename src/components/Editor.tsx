@@ -14,8 +14,11 @@ const CodeEditor = ({ webContainer }: CodeEditorProps) => {
 
   // Add file to tabs when activated
   React.useEffect(() => {
-    if (activeFile && !openTabs.includes(activeFile.path)) {
-      setOpenTabs([...openTabs, activeFile.path]);
+    if (activeFile && !openTabs.some(tab => tab.path === activeFile.path)) {
+      setOpenTabs([...openTabs, { 
+        file: activeFile.path.split('/').pop() || '',
+        path: activeFile.path 
+      }]);
     }
   }, [activeFile]);
 
@@ -130,12 +133,12 @@ const CodeEditor = ({ webContainer }: CodeEditorProps) => {
 
   const closeTab = (path: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    const newTabs = openTabs.filter((tab) => tab !== path);
+    const newTabs = openTabs.filter((tab) => tab.path !== path);
     setOpenTabs(newTabs);
 
     if (activeFile?.path === path) {
       const nextTab = newTabs[newTabs.length - 1];
-      const nextFile = files.find((f) => f.path === nextTab);
+      const nextFile = nextTab ? files.find((f) => f.path === nextTab.path) : null;
       setActiveFile(nextFile || null);
     }
   };
@@ -144,22 +147,22 @@ const CodeEditor = ({ webContainer }: CodeEditorProps) => {
     <div className="h-full bg-editor-bg text-gray-300 flex flex-col">
       {/* Tabs */}
       <div className="flex overflow-x-auto bg-[#252526] border-b border-[#3c3c3c]">
-        {openTabs.map((path) => {
-          const file = files.find((f) => f.path === path);
-          const isActive = activeFile?.path === path;
+        {openTabs.map((tab) => {
+          const file = files.find((f) => f.path === tab.path);
+          const isActive = activeFile?.path === tab.path;
           return (
             <div
-              key={path}
+              key={tab.path}
               className={`group flex items-center px-3 py-2 cursor-pointer border-r border-[#3c3c3c] min-w-[100px] max-w-[200px] ${isActive ? 'bg-editor-bg' : 'hover:bg-[#2d2d2d]'
                 }`}
               onClick={() => file && setActiveFile(file)}
             >
               <span className="text-sm truncate flex-1">
-                {path.split('/').pop()}
+                {tab.file}
               </span>
               <button
                 className="ml-2 p-0.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-[#3c3c3c]"
-                onClick={(e) => closeTab(path, e)}
+                onClick={(e) => closeTab(tab.path, e)}
               >
                 <XMarkIcon className="w-3 h-3" />
               </button>
